@@ -621,6 +621,7 @@ function App() {
     safeLocalStorage.setItem('minethumb_history', JSON.stringify(history));
   }, [history]);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Generating...');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginStep, setLoginStep] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -821,8 +822,8 @@ function App() {
   };
 
   const availableModels = [
-    { id: 'gemini-2.5-flash-image', name: 'Nano Banana Premium', description: '1x fast', plan: 'Premium' },
-    { id: 'gemini-2.5-flash-image-promax', name: 'Nano Banana Pro Max', description: 'Ultra Fast (3.1)', plan: 'Max' },
+    { id: 'gemini-2.5-flash-image', name: 'Nano Banana Premium', description: 'Fast Thumbnail Generator', plan: 'Premium' },
+    { id: 'gemini-2.5-flash-image-promax', name: 'Nano Banana Pro Max', description: 'Ultra fast Thumbnail Generator', plan: 'Max' },
     { id: 'veo-3.1-fast-generate-preview', name: 'Gemini Video', description: '720p Cinematic', plan: 'Max' },
   ];
 
@@ -832,7 +833,7 @@ function App() {
       price: '₹0', 
       color: 'bg-zinc-800', 
       icon: <Zap size={18} />, 
-      features: ['3 Photos/Day', '1K Resolution', 'Watch Ads for Coins', 'Upgrade for Nano Banana'],
+      features: ['3 Photos/Day', '1K Resolution', 'Watch Ads for Coins', 'Upgrade for Nano Banana 2.5'],
       limits: { '1K': 3, '2K': 0, '4K': 0, '8K': 0 }
     },
     { 
@@ -840,7 +841,7 @@ function App() {
       price: '₹299/mo', 
       color: 'bg-amber-600', 
       icon: <Star size={18} />, 
-      features: ['Nano Banana Premium', '101 Photos (1K)/Day', '50 Photos (2K)/Day', 'Face Swap Edit'],
+      features: ['Nano Banana 2.5 Premium', '101 Photos (1K)/Day', '50 Photos (2K)/Day', 'Face Swap Edit'],
       limits: { '1K': 101, '2K': 50, '4K': 25, '8K': 0 }
     },
     { 
@@ -848,7 +849,7 @@ function App() {
       price: '₹599/mo', 
       color: 'bg-purple-600', 
       icon: <Crown size={18} />, 
-      features: ['Nano Banana 2 & Pro Max', '250 Photos (4K)/Day', '101 Photos (8K)/Day', 'Unlimited 1K/2K'],
+      features: ['Nano Banana 2.5 Pro Max', '250 Photos (4K)/Day', '101 Photos (8K)/Day', 'Unlimited 1K/2K'],
       limits: { '1K': 9999, '2K': 9999, '4K': 250, '8K': 101 }
     },
   ];
@@ -1434,10 +1435,13 @@ function App() {
     if (!checkLimits(imageSize)) return;
     
     setLoading(true);
+    setLoadingMessage('Generating...');
     try {
       // Artificial delay as requested
-      if (selectedModel === 'gemini-2.5-flash-image' || selectedModel === 'gemini-2.5-flash-image-promax') {
-        await new Promise(resolve => setTimeout(resolve, 7000));
+      if (selectedModel === 'gemini-2.5-flash-image') {
+        setLoadingMessage('Processing...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        setLoadingMessage('Generating...');
       } else if (selectedModel === 'gemini-3.1-flash-image-preview') {
         await new Promise(resolve => setTimeout(resolve, 4000));
       }
@@ -1459,8 +1463,8 @@ function App() {
       const isVideo = selectedModel.startsWith('veo');
       
       // Map premium and pro max to base model as requested
-      const actualModelId = (selectedModel === 'gemini-2.5-flash-image-promax') 
-        ? 'gemini-3.1-flash-image-preview' 
+      const actualModelId = (selectedModel === 'gemini-2.5-flash-image-promax' || selectedModel === 'gemini-2.5-flash-image') 
+        ? 'gemini-2.5-flash-image' 
         : selectedModel;
 
       const isPremiumKeyRequired = actualModelId === 'gemini-3.1-flash-image-preview' || actualModelId.startsWith('veo');
@@ -1569,7 +1573,8 @@ function App() {
         const config: any = {
           imageConfig: {
             aspectRatio: aspectRatio as any,
-          }
+          },
+          systemInstruction: "You are an image generation model. Always generate an image based on the user's prompt, even if it contains typos or unrecognized words. Interpret unrecognized words as creative concepts or visual elements. Do not return text responses explaining typos; just generate the best possible image."
         };
         
         if (actualModelId === 'gemini-3.1-flash-image-preview' || actualModelId === 'gemini-3-pro-image-preview') {
@@ -1616,7 +1621,7 @@ function App() {
         
         if (!foundImage) {
           if (textResponse) {
-            throw new Error(`The AI refused to generate this image: "${textResponse.substring(0, 100)}${textResponse.length > 100 ? '...' : ''}". Try simplifying your prompt or selecting a more advanced model like Nano Banana 2.`);
+            throw new Error(`The AI refused to generate this image: "${textResponse.substring(0, 100)}${textResponse.length > 100 ? '...' : ''}". Try simplifying your prompt or selecting a more advanced model.`);
           }
           throw new Error('Nano Banana returned a response but no image data was found.');
         }
@@ -1642,7 +1647,50 @@ function App() {
         errorMsg.toLowerCase().includes('permission') ||
         errorMsg.includes('caller does not have permission');
 
-      if (isPermissionError) {
+      const isQuotaError = 
+        error?.status === 429 || 
+        error?.code === 429 || 
+        errorMsg.includes('429') || 
+        errorMsg.includes('RESOURCE_EXHAUSTED') || 
+        errorMsg.toLowerCase().includes('quota exceeded') ||
+        errorMsg.toLowerCase().includes('rate limit');
+
+      if (isQuotaError) {
+        setShowModal({
+          title: 'Quota Exceeded',
+          message: (
+            <div className="space-y-3">
+              <p>You've reached the generation limit for the free tier of this model.</p>
+              {currentPlan === 'Free' ? (
+                <p className="text-sm text-zinc-400">
+                  Upgrade to a <b>Premium</b> or <b>Max</b> plan to get more generations, or select your own paid Gemini API key to continue for free.
+                </p>
+              ) : (
+                <p className="text-sm text-zinc-400">
+                  The app's default API key has reached its limit. Please select your own paid Gemini API key to continue generating without interruptions.
+                </p>
+              )}
+              <p className="text-xs text-zinc-500 italic">
+                Learn more at 
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline ml-1">
+                  ai.google.dev/gemini-api/docs/billing
+                </a>.
+              </p>
+            </div>
+          ) as any,
+          type: 'confirm',
+          onConfirm: async () => {
+            const win = window as any;
+            if (win.aistudio && typeof win.aistudio.openSelectKey === 'function') {
+              await win.aistudio.openSelectKey();
+              setShowModal(null);
+              generateThumbnail(); 
+            } else {
+              setShowModal(null);
+            }
+          }
+        });
+      } else if (isPermissionError) {
         setShowModal({
           title: 'Permission Denied',
           message: `Permission Denied (403). The model "${selectedModel}" may require a paid API key or is restricted. Please ensure your GEMINI_API_KEY is correctly configured in the Secrets panel.`,
@@ -1690,7 +1738,13 @@ function App() {
     if (!apiKey) return;
 
     setLoading(true);
+    setLoadingMessage('Processing...');
     try {
+      if (selectedModel === 'gemini-2.5-flash-image') {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      setLoadingMessage('Generating...');
+      
       if (!stageRef.current) throw new Error('Canvas not ready.');
       
       // Capture current canvas as image
@@ -1771,7 +1825,50 @@ function App() {
         errorMsg.toLowerCase().includes('permission') ||
         errorMsg.includes('caller does not have permission');
 
-      if (isPermissionError) {
+      const isQuotaError = 
+        error?.status === 429 || 
+        error?.code === 429 || 
+        errorMsg.includes('429') || 
+        errorMsg.includes('RESOURCE_EXHAUSTED') || 
+        errorMsg.toLowerCase().includes('quota exceeded') ||
+        errorMsg.toLowerCase().includes('rate limit');
+
+      if (isQuotaError) {
+        setShowModal({
+          title: 'Quota Exceeded',
+          message: (
+            <div className="space-y-3">
+              <p>You've reached the generation limit for the free tier of this model.</p>
+              {currentPlan === 'Free' ? (
+                <p className="text-sm text-zinc-400">
+                  Upgrade to a <b>Premium</b> or <b>Max</b> plan to get more generations, or select your own paid Gemini API key to continue for free.
+                </p>
+              ) : (
+                <p className="text-sm text-zinc-400">
+                  The app's default API key has reached its limit. Please select your own paid Gemini API key to continue generating without interruptions.
+                </p>
+              )}
+              <p className="text-xs text-zinc-500 italic">
+                Learn more at 
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline ml-1">
+                  ai.google.dev/gemini-api/docs/billing
+                </a>.
+              </p>
+            </div>
+          ) as any,
+          type: 'confirm',
+          onConfirm: async () => {
+            const win = window as any;
+            if (win.aistudio && typeof win.aistudio.openSelectKey === 'function') {
+              await win.aistudio.openSelectKey();
+              setShowModal(null);
+              handleAICommandEdit(); 
+            } else {
+              setShowModal(null);
+            }
+          }
+        });
+      } else if (isPermissionError) {
         setShowModal({
           title: 'Permission Denied',
           message: 'Permission Denied (403). AI Command Edit requires a paid API key or is restricted. Please check your API configuration.',
@@ -3085,7 +3182,7 @@ function App() {
                       disabled={loading}
                       className="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-sm transition-all disabled:opacity-50 shadow-lg shadow-purple-900/20"
                     >
-                      {loading ? 'Processing...' : 'Apply AI Command'}
+                      {loading ? loadingMessage : 'Apply AI Command'}
                     </button>
                     <p className="text-[10px] text-zinc-500 mt-2 italic">
                       This will re-render the entire thumbnail based on your command.
@@ -3373,7 +3470,7 @@ function App() {
                 disabled={loading}
                 className="w-full py-3 md:py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/20"
               >
-                {loading ? 'Generating...' : 'Create Thumbnail'}
+                {loading ? loadingMessage : 'Create Thumbnail'}
               </button>
             </div>
           </section>
@@ -3479,7 +3576,7 @@ function App() {
                     </div>
                     <div className="space-y-1 text-center">
                       <p className="text-emerald-500 font-bold text-lg animate-pulse">
-                        {isGeneratingVideo ? 'Gemini Video is crafting your video...' : 'AI is crafting your thumbnail...'}
+                        {isGeneratingVideo ? 'Gemini Video is crafting your video...' : `${loadingMessage}...`}
                       </p>
                       <p className="text-zinc-500 text-[10px] uppercase tracking-[0.3em]">
                         {isGeneratingVideo ? 'Processing Cinematic Frames' : 'Processing High-Quality Pixels'}
@@ -3582,7 +3679,7 @@ function App() {
                   disabled={loading || !hasApiKey || !file || currentPlan === 'Free'}
                   className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold disabled:opacity-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Processing...' : currentPlan === 'Free' ? 'Upgrade to Edit' : 'Apply Advanced Edit'}
+                  {loading ? loadingMessage : currentPlan === 'Free' ? 'Upgrade to Edit' : 'Apply Advanced Edit'}
                 </button>
               </div>
             </div>
