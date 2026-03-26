@@ -2201,8 +2201,7 @@ function App() {
         </div>
 
         <div className="relative z-20 bg-black/75 p-10 md:p-16 rounded-md w-full max-w-[450px] shadow-2xl backdrop-blur-sm">
-          <div className="flex flex-col items-center justify-center mb-10 gap-4">
-            <img src="/xr.png" alt="Logo" className="w-20 h-20 rounded-3xl shadow-2xl" referrerPolicy="no-referrer" />
+          <div className="flex justify-center mb-10">
             <h1 className="text-4xl font-black text-emerald-600 tracking-tighter italic">MINETHUMB</h1>
           </div>
           
@@ -2335,9 +2334,9 @@ function App() {
                 scale: [1, 1.1, 1]
               }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="w-24 h-24 bg-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(16,185,129,0.3)] overflow-hidden"
+              className="w-24 h-24 bg-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(16,185,129,0.3)]"
             >
-              <img src="/xr.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <Wand2 size={48} className="text-white" />
             </motion.div>
             <h1 className="text-6xl font-black text-white tracking-tighter italic mb-2">
               MINE<span className="text-emerald-600">THUMB</span>
@@ -2783,8 +2782,8 @@ function App() {
                           <div className="bg-zinc-950 border border-emerald-500/30 w-full max-w-5xl max-h-[90vh] rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] flex flex-col animate-in zoom-in-95 duration-200">
                             <div className="p-8 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
                               <div className="flex items-center gap-4">
-                                <div className="p-1 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/20 overflow-hidden">
-                                  <img src="/xr.png" alt="Logo" className="w-12 h-12 object-cover" referrerPolicy="no-referrer" />
+                                <div className="p-3 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/20">
+                                  <Lock size={28} className="text-white" />
                                 </div>
                                 <div>
                                   <h1 className="text-2xl font-black tracking-tighter italic text-white uppercase">Admin Control Center</h1>
@@ -3103,7 +3102,6 @@ function App() {
       <header className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
         <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
-            <img src="/xr.png" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg" referrerPolicy="no-referrer" />
             <h1 className="text-2xl md:text-3xl font-bold tracking-tighter">MineThumb AI</h1>
           </div>
           <div className="flex items-center gap-2">
