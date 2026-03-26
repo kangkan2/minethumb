@@ -1,0 +1,5 @@
+{
+  "name": "MineThumb AI",
+  "description": "An AI-powered Minecraft thumbnail generator with face swapping, custom sizes, and premium subscription tiers.",
+  "requestFramePermissions": ["camera", "microphone"]
+}

@@ -1,0 +1,151 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: userId (Firebase Auth UID)
+// Fields:
+//   - uid: string (required) - The user's unique ID
+//   - email: string (required) - The user's email address
+//   - plan: string (required) - One of: 'Free', 'Premium', 'Max'
+//   - coins: number (required) - Current coin balance
+//   - dailyUsage: map (required) - Tracking usage for different resolutions
+//   - lastResetDate: string (required) - ISO date (YYYY-MM-DD)
+//   - subscriptionEndDate: string (optional) - ISO date string
+//
+// Collection: redeem_codes
+// Document ID: code (e.g., PREMIUM-XXXX)
+// Fields:
+//   - code: string (required)
+//   - plan: string (required) - 'Premium' or 'Max'
+//   - isUsed: boolean (required)
+//   - usedBy: string (optional) - Email of the user who redeemed it
+//   - usedAt: timestamp (optional)
+//   - createdAt: timestamp (required)
+//   - createdBy: string (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email == "indiafff568@gmail.com";
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'plan', 'coins', 'dailyUsage', 'lastResetDate']) &&
+             data.uid is string &&
+             data.uid.size() > 0 &&
+             data.uid.size() < 128 &&
+             isValidEmail(data.email) &&
+             data.email.size() < 256 &&
+             data.plan in ['Free', 'Premium', 'Max'] &&
+             data.coins is number &&
+             data.dailyUsage is map &&
+             data.lastResetDate is string &&
+             data.lastResetDate.size() == 10;
+    }
+
+    function isRedeemingValidCode(userId, userData) {
+      let codeId = userData.lastRedeemedCode;
+      let codePath = /databases/$(database)/documents/redeem_codes/$(codeId);
+      let codeBefore = get(codePath).data;
+      let codeAfter = getAfter(codePath).data;
+      
+      return codeId is string &&
+             codeBefore.isUsed == false &&
+             codeAfter.isUsed == true &&
+             codeAfter.usedBy == userData.email &&
+             codeBefore.plan == userData.plan;
+    }
+
+    function isValidRedeemCode(data) {
+      return data.keys().hasAll(['code', 'plan', 'isUsed', 'createdAt', 'createdBy']) &&
+             data.code is string &&
+             data.code.size() > 0 &&
+             data.code.size() < 64 &&
+             data.plan in ['Premium', 'Max'] &&
+             data.isUsed is bool &&
+             data.createdAt is timestamp &&
+             data.createdBy is string &&
+             data.createdBy.size() < 256;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      
+      allow create: if isAuthenticated() && 
+                      isOwner(userId) && 
+                      isValidUser(request.resource.data) && 
+                      request.resource.data.plan == 'Free'; // New users start as Free
+      
+      allow update: if isAdmin() || 
+                      (isOwner(userId) && 
+                       isValidUser(request.resource.data) &&
+                       request.resource.data.uid == resource.data.uid &&
+                       request.resource.data.email == resource.data.email &&
+                       (
+                         // If plan is NOT changing, allow update
+                         (request.resource.data.plan == resource.data.plan) ||
+                         // If plan IS changing, must be a valid redemption
+                         isRedeemingValidCode(userId, request.resource.data)
+                       ));
+
+      match /redemptions/{codeId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId);
+      }
+    }
+
+    match /redeem_codes/{code} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAdmin() && isValidRedeemCode(request.resource.data);
+      
+      allow update: if isAuthenticated() && 
+                      resource.data.isUsed == false && 
+                      request.resource.data.isUsed == true &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedBy', 'usedAt']) &&
+                      (request.resource.data.usedBy == request.auth.token.email || isAdmin());
+      
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

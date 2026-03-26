@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and plan information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "plan": { "type": "string", "enum": ["Free", "Premium", "Max"] },
+        "coins": { "type": "integer" },
+        "dailyUsage": {
+          "type": "object",
+          "properties": {
+            "1K": { "type": "integer" },
+            "2K": { "type": "integer" },
+            "4K": { "type": "integer" },
+            "8K": { "type": "integer" },
+            "total": { "type": "integer" }
+          }
+        },
+        "lastResetDate": { "type": "string", "format": "date" }
+      },
+      "required": ["uid", "email", "plan"]
+    },
+    "Thumbnail": {
+      "title": "Thumbnail",
+      "description": "Saved thumbnails and their canvas state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "canvasState": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "imageUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/thumbnails/{thumbnailId}": {
+      "schema": "Thumbnail",
+      "description": "Saved thumbnails"
+    }
+  }
+}
