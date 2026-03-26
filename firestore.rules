@@ -44,7 +44,8 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() &&
-        request.auth.token.email == "indiafff568@gmail.com";
+        request.auth.token.email == "indiafff568@gmail.com" &&
+        (request.auth.token.email_verified == true || request.auth.token.email_verified == false); // Allow even if not verified for this specific admin
     }
 
     function isValidEmail(email) {
@@ -91,7 +92,7 @@ service cloud.firestore {
       return data.keys().hasAll(['code', 'plan', 'isUsed', 'createdAt', 'createdBy']) &&
              data.code is string &&
              data.code.size() > 0 &&
-             data.code.size() < 64 &&
+             data.code.size() < 128 &&
              data.plan in ['Premium', 'Max'] &&
              data.isUsed is bool &&
              data.createdAt is timestamp &&

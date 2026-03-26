@@ -1,4 +1,18 @@
 {
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/thumbnails/{thumbnailId}": {
+      "schema": "Thumbnail",
+      "description": "Saved thumbnails"
+    },
+    "/redeem_codes/{code}": {
+      "schema": "RedeemCode",
+      "description": "Redeemable codes for Premium/Max plans"
+    }
+  },
   "entities": {
     "User": {
       "title": "User",
@@ -35,16 +49,22 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "imageUrl"]
-    }
-  },
-  "firestore": {
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "User profiles"
     },
-    "/thumbnails/{thumbnailId}": {
-      "schema": "Thumbnail",
-      "description": "Saved thumbnails"
+    "RedeemCode": {
+      "title": "RedeemCode",
+      "description": "Redeemable subscription code",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "plan": { "type": "string", "enum": ["Premium", "Max"] },
+        "isUsed": { "type": "boolean" },
+        "usedBy": { "type": "string" },
+        "usedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "oneTimeUse": { "type": "boolean" }
+      },
+      "required": ["code", "plan", "isUsed", "createdAt", "createdBy"]
     }
   }
 }

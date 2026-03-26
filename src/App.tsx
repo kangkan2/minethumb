@@ -4,9 +4,11 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Wand2, Image as ImageIcon, Zap, Crown, Star, LogOut, User as UserIcon, Download, Share2, Move, Type, Layers, Play, Video, Trash2, History, Lock, Key, X, ArrowRight, Layout, Plus, Copy, Search, Upload, Eye, Pipette, Mail } from 'lucide-react';
+import { Wand2, Image as ImageIcon, Zap, Crown, Star, LogOut, User as UserIcon, Download, Share2, Move, Type, Layers, Play, Video, Trash2, History, Lock, Key, X, ArrowRight, Layout, Plus, Copy, Search, Upload, Eye, Pipette, Mail, Camera, QrCode } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
+import { QRCodeCanvas } from 'qrcode.react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { auth, db } from './firebase';
 import firebaseConfig from '../firebase-applet-config.json';
 import { viralLayouts } from './viralLayouts';
@@ -650,6 +652,10 @@ function App() {
   const [allRedeemCodes, setAllRedeemCodes] = useState<any[]>([]);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [selectedCodePlan, setSelectedCodePlan] = useState<'Premium' | 'Max'>('Premium');
+  const [showQRModal, setShowQRModal] = useState<string | null>(null);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [qrScannerError, setQrScannerError] = useState<string | null>(null);
+  const qrScannerRef = useRef<Html5Qrcode | null>(null);
   const [activeTab, setActiveTab] = useState<'thumbnail' | 'faceswap' | 'edit'>('thumbnail');
   const [thumbnailCategory, setThumbnailCategory] = useState<'Minecraft' | 'GTA V' | 'Free Fire Max' | 'PUBG' | 'Real Life'>('Minecraft');
   const [canvasElements, setCanvasElements] = useState<CanvasElement[]>([]);
@@ -1060,11 +1066,11 @@ function App() {
       }
     } catch (error: any) {
       let message = error.message;
-      if (error.code === 'auth/email-already-in-use') message = 'Email already in use';
+      if (error.code === 'auth/email-already-in-use') message = 'This account is already in use. Try logging in.';
       if (error.code === 'auth/invalid-email') message = 'Invalid email address';
-      if (error.code === 'auth/weak-password') message = 'Password is too weak';
-      if (error.code === 'auth/user-not-found') message = 'User not found';
-      if (error.code === 'auth/wrong-password') message = 'Incorrect password';
+      if (error.code === 'auth/weak-password') message = 'Password should be at least 6 characters';
+      if (error.code === 'auth/user-not-found') message = 'User not found. Please register first.';
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') message = 'Incorrect password. Please try again.';
       setAuthError(message);
     } finally {
       setIsAuthProcessing(false);
@@ -1077,7 +1083,15 @@ function App() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      setAuthError(error.message);
+      let message = error.message;
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        message = 'This account is already in use with a different login method. Please use your email and password.';
+      } else if (error.code === 'auth/email-already-in-use') {
+        message = 'This email is already associated with another account.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        message = 'Login cancelled. Please try again.';
+      }
+      setAuthError(message);
     } finally {
       setIsAuthProcessing(false);
     }
@@ -1162,6 +1176,63 @@ function App() {
         origin: { y: 0.6 },
         colors: ['#10b981', '#34d399', '#6ee7b7']
       });
+    }
+  };
+
+  const startScanner = async () => {
+    setQrScannerError(null);
+    setShowQRScanner(true);
+    setTimeout(async () => {
+      try {
+        const scanner = new Html5Qrcode("qr-reader");
+        qrScannerRef.current = scanner;
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            setRedeemCode(decodedText);
+            stopScanner();
+            toast.success("QR Code scanned successfully!");
+          },
+          (errorMessage) => {
+            // Ignore common errors like "No QR code found"
+          }
+        );
+      } catch (err: any) {
+        setQrScannerError(err.message || "Failed to start camera");
+        console.error("QR Scanner Error:", err);
+      }
+    }, 100);
+  };
+
+  const stopScanner = async () => {
+    if (qrScannerRef.current) {
+      try {
+        await qrScannerRef.current.stop();
+        qrScannerRef.current = null;
+      } catch (err) {
+        console.error("Failed to stop scanner:", err);
+      }
+    }
+    setShowQRScanner(false);
+  };
+
+  const handleGalleryScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const scanner = new Html5Qrcode("qr-reader-hidden");
+    try {
+      const decodedText = await scanner.scanFile(file, true);
+      setRedeemCode(decodedText);
+      stopScanner();
+      toast.success("QR Code scanned from gallery!");
+    } catch (err: any) {
+      toast.error("No QR code found in this image.");
+      console.error("Gallery scan error:", err);
     }
   };
 
@@ -2130,7 +2201,8 @@ function App() {
         </div>
 
         <div className="relative z-20 bg-black/75 p-10 md:p-16 rounded-md w-full max-w-[450px] shadow-2xl backdrop-blur-sm">
-          <div className="flex justify-center mb-10">
+          <div className="flex flex-col items-center justify-center mb-10 gap-4">
+            <img src="/xr.png" alt="Logo" className="w-20 h-20 rounded-3xl shadow-2xl" referrerPolicy="no-referrer" />
             <h1 className="text-4xl font-black text-emerald-600 tracking-tighter italic">MINETHUMB</h1>
           </div>
           
@@ -2263,9 +2335,9 @@ function App() {
                 scale: [1, 1.1, 1]
               }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="w-24 h-24 bg-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(16,185,129,0.3)]"
+              className="w-24 h-24 bg-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(16,185,129,0.3)] overflow-hidden"
             >
-              <Wand2 size={48} className="text-white" />
+              <img src="/xr.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </motion.div>
             <h1 className="text-6xl font-black text-white tracking-tighter italic mb-2">
               MINE<span className="text-emerald-600">THUMB</span>
@@ -2416,34 +2488,98 @@ function App() {
                     <Key size={32} />
                   </div>
                   <h3 className="text-xl font-bold mb-2">Enter Redeem Code</h3>
-                  <p className="text-sm text-zinc-500 mb-6">Enter your 69-character code to activate your 30-day subscription.</p>
+                  <p className="text-sm text-zinc-500 mb-6">Enter your 128-character code or scan a QR code to activate your 30-day subscription.</p>
                   
-                  <div className="relative mb-4">
-                    <motion.input 
-                      animate={redeemError ? { x: [-10, 10, -10, 10, 0] } : {}}
-                      transition={{ duration: 0.4 }}
-                      type="text"
-                      placeholder="XXXX-XXXX-XXXX"
-                      value={redeemCode}
-                      onChange={(e) => {
-                        setRedeemCode(e.target.value.toUpperCase());
-                        setRedeemError(null);
-                      }}
-                      maxLength={69}
-                      className={`w-full py-4 px-6 bg-zinc-900 border ${redeemError ? 'border-red-500' : 'border-zinc-700'} rounded-2xl text-center font-mono text-xl tracking-widest focus:border-emerald-500 outline-none transition-all`}
-                    />
-                    {redeemError && (
-                      <p className="text-red-500 text-xs mt-2 font-medium">{redeemError}</p>
-                    )}
-                  </div>
-                  
-                  <button 
-                    onClick={handleRedeem}
-                    disabled={redeemCode.length < 69}
-                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20"
-                  >
-                    Activate Access
-                  </button>
+                  {showQRScanner ? (
+                    <div className="space-y-4">
+                      <div className="relative aspect-square bg-black rounded-3xl border-2 border-emerald-500/30 overflow-hidden shadow-2xl">
+                        <div id="qr-reader" className="w-full h-full" />
+                        {qrScannerError && (
+                          <div className="absolute inset-0 flex items-center justify-center p-6 text-center bg-zinc-950/90">
+                            <div className="space-y-4">
+                              <p className="text-red-400 text-sm font-bold">{qrScannerError}</p>
+                              <button 
+                                onClick={startScanner}
+                                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold uppercase"
+                              >
+                                Retry Camera
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={stopScanner}
+                          className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <label className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer text-white">
+                          <ImageIcon size={18} /> From Gallery
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handleGalleryScan}
+                          />
+                        </label>
+                      </div>
+                      <div id="qr-reader-hidden" className="hidden" />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <motion.input 
+                          animate={redeemError ? { x: [-10, 10, -10, 10, 0] } : {}}
+                          transition={{ duration: 0.4 }}
+                          type="text"
+                          placeholder="XXXX-XXXX-XXXX"
+                          value={redeemCode}
+                          onChange={(e) => {
+                            setRedeemCode(e.target.value.toUpperCase());
+                            setRedeemError(null);
+                          }}
+                          maxLength={128}
+                          className={`w-full py-4 px-6 bg-zinc-900 border ${redeemError ? 'border-red-500' : 'border-zinc-700'} rounded-2xl text-center font-mono text-xl tracking-widest focus:border-emerald-500 outline-none transition-all`}
+                        />
+                        {redeemError && (
+                          <p className="text-red-500 text-xs mt-2 font-medium">{redeemError}</p>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <button 
+                          onClick={startScanner}
+                          className="py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-zinc-700"
+                        >
+                          <Camera size={18} /> Scan QR
+                        </button>
+                        <label className="py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-zinc-700 cursor-pointer">
+                          <ImageIcon size={18} /> Gallery
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handleGalleryScan}
+                          />
+                        </label>
+                      </div>
+
+                      <button 
+                        onClick={handleRedeem}
+                        disabled={isRedeeming || !redeemCode}
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                      >
+                        {isRedeeming ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Processing...
+                          </>
+                        ) : 'Activate Access'}
+                      </button>
+                    </div>
+                  )}
                   
                   <div className="mt-6 text-center space-y-4">
                     <p className="text-xs text-zinc-500">
@@ -2647,8 +2783,8 @@ function App() {
                           <div className="bg-zinc-950 border border-emerald-500/30 w-full max-w-5xl max-h-[90vh] rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] flex flex-col animate-in zoom-in-95 duration-200">
                             <div className="p-8 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
                               <div className="flex items-center gap-4">
-                                <div className="p-3 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/20">
-                                  <Lock size={28} className="text-white" />
+                                <div className="p-1 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/20 overflow-hidden">
+                                  <img src="/xr.png" alt="Logo" className="w-12 h-12 object-cover" referrerPolicy="no-referrer" />
                                 </div>
                                 <div>
                                   <h1 className="text-2xl font-black tracking-tighter italic text-white uppercase">Admin Control Center</h1>
@@ -2788,7 +2924,14 @@ function App() {
                                                   {code.isUsed ? 'Used' : 'Active'}
                                                 </span>
                                               </td>
-                                              <td className="p-4 text-right">
+                                              <td className="p-4 text-right flex items-center justify-end gap-2">
+                                                <button 
+                                                  onClick={() => setShowQRModal(code.code)}
+                                                  className="p-2 hover:bg-emerald-500/20 rounded-lg text-zinc-600 hover:text-emerald-500 transition-all"
+                                                  title="Show QR Code"
+                                                >
+                                                  <QrCode size={14} />
+                                                </button>
                                                 <button 
                                                   onClick={() => deleteRedeemCode(code.id)}
                                                   className="p-2 hover:bg-red-500/20 rounded-lg text-zinc-600 hover:text-red-500 transition-all"
@@ -2805,6 +2948,40 @@ function App() {
                                 </div>
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {showQRModal && (
+                        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-300">
+                          <div className="bg-zinc-950 border border-emerald-500/30 p-10 rounded-[3rem] text-center space-y-8 max-w-sm w-full shadow-[0_0_100px_rgba(16,185,129,0.2)] animate-in zoom-in-95 duration-300">
+                            <div className="flex justify-between items-center mb-2">
+                              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Redeem QR Code</h3>
+                              <button onClick={() => setShowQRModal(null)} className="p-2 hover:bg-zinc-800 rounded-2xl transition-all">
+                                <X size={24} className="text-zinc-500" />
+                              </button>
+                            </div>
+                            <div className="bg-white p-6 rounded-[2rem] inline-block shadow-2xl">
+                              <QRCodeCanvas 
+                                value={showQRModal} 
+                                size={200}
+                                level="H"
+                                includeMargin={true}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.3em]">Redeem Code</p>
+                              <p className="font-mono text-sm font-black text-emerald-500 break-all bg-emerald-500/5 py-3 px-4 rounded-2xl border border-emerald-500/10 tracking-widest">{showQRModal}</p>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(showQRModal);
+                                toast.success("Code copied!");
+                              }}
+                              className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3"
+                            >
+                              <Copy size={16} /> Copy Code
+                            </button>
                           </div>
                         </div>
                       )}
@@ -2831,32 +3008,93 @@ function App() {
               <button onClick={() => setShowRedeem(false)} className="p-2 hover:bg-zinc-800 rounded-full">✕</button>
             </div>
             <div className="space-y-6">
-              <p className="text-zinc-400 text-sm">Enter your special redeem code to upgrade your account instantly.</p>
-              <div className="space-y-2">
-                <input 
-                  type="text" 
-                  placeholder="ENTER REDEEM CODE" 
-                  value={redeemCode}
-                  onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
-                  maxLength={69}
-                  className="w-full p-4 bg-zinc-800 rounded-xl border border-zinc-700 focus:border-emerald-500 outline-none text-center text-xl tracking-widest font-mono"
-                />
-                <p className="text-[10px] text-zinc-500 text-center uppercase font-bold tracking-tighter">
-                  {redeemCode.length} Characters
-                </p>
-              </div>
-              <button 
-                onClick={handleRedeem}
-                disabled={isRedeeming || !redeemCode}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isRedeeming ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Processing...
-                  </>
-                ) : 'Redeem Now'}
-              </button>
+              <p className="text-zinc-400 text-sm">Enter your special redeem code or scan a QR code to upgrade your account instantly.</p>
+              
+              {showQRScanner ? (
+                <div className="space-y-4">
+                  <div className="relative aspect-square bg-black rounded-3xl border-2 border-emerald-500/30 overflow-hidden shadow-2xl">
+                    <div id="qr-reader" className="w-full h-full" />
+                    {qrScannerError && (
+                      <div className="absolute inset-0 flex items-center justify-center p-6 text-center bg-zinc-950/90">
+                        <div className="space-y-4">
+                          <p className="text-red-400 text-sm font-bold">{qrScannerError}</p>
+                          <button 
+                            onClick={startScanner}
+                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold uppercase"
+                          >
+                            Retry Camera
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={stopScanner}
+                      className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <label className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer">
+                      <ImageIcon size={18} /> From Gallery
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleGalleryScan}
+                      />
+                    </label>
+                  </div>
+                  <div id="qr-reader-hidden" className="hidden" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <input 
+                      type="text" 
+                      placeholder="ENTER REDEEM CODE" 
+                      value={redeemCode}
+                      onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
+                      maxLength={128}
+                      className="w-full p-4 bg-zinc-800 rounded-xl border border-zinc-700 focus:border-emerald-500 outline-none text-center text-xl tracking-widest font-mono"
+                    />
+                    <p className="text-[10px] text-zinc-500 text-center uppercase font-bold tracking-tighter">
+                      {redeemCode.length} Characters
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={startScanner}
+                      className="py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-zinc-700"
+                    >
+                      <Camera size={18} /> Scan QR
+                    </button>
+                    <label className="py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-zinc-700 cursor-pointer">
+                      <ImageIcon size={18} /> Gallery
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleGalleryScan}
+                      />
+                    </label>
+                  </div>
+
+                  <button 
+                    onClick={handleRedeem}
+                    disabled={isRedeeming || !redeemCode}
+                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isRedeeming ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Processing...
+                      </>
+                    ) : 'Redeem Now'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2865,6 +3103,7 @@ function App() {
       <header className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
         <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
+            <img src="/xr.png" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg" referrerPolicy="no-referrer" />
             <h1 className="text-2xl md:text-3xl font-bold tracking-tighter">MineThumb AI</h1>
           </div>
           <div className="flex items-center gap-2">
