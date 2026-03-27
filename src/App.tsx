@@ -2334,7 +2334,7 @@ function App() {
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               className="w-24 h-24 bg-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(16,185,129,0.3)]"
             >
-              <Wand2 size={48} className="text-white" />
+              <div className="text-6xl">🥞</div>
             </motion.div>
             <h1 className="text-6xl font-black text-white tracking-tighter italic mb-2">
               MINE<span className="text-emerald-600">THUMB</span>
