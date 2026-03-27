@@ -1513,8 +1513,6 @@ function App() {
         setLoadingMessage('Processing...');
         await new Promise(resolve => setTimeout(resolve, 5000));
         setLoadingMessage('Generating...');
-      } else if (selectedModel === 'gemini-3.1-flash-image-preview') {
-        await new Promise(resolve => setTimeout(resolve, 4000));
       }
 
       const apiKey = getApiKey(isPremiumModel);
