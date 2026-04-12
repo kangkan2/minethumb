@@ -1535,6 +1535,8 @@ function App() {
       const actualModelId = (selectedModel === 'gemini-2.5-flash-image-promax' || selectedModel === 'gemini-2.5-flash-image') 
         ? 'gemini-2.5-flash-image' 
         : selectedModel;
+      console.log('Selected model:', selectedModel);
+      console.log('Actual model ID:', actualModelId);
 
       const isPremiumKeyRequired = actualModelId === 'gemini-3.1-flash-image-preview' || actualModelId.startsWith('veo');
 
