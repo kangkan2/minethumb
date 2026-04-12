@@ -1014,8 +1014,8 @@ function App() {
     if (isValidKey(runtimeKey)) return runtimeKey;
     if (isValidKey(buildTimeKey)) return buildTimeKey;
     
-    // Last resort fallback
-    return "AIzaSyDE7WIAcDnWDz-ENWX6vJ9m3vby6j8Nj6o";
+    // No valid key found
+    throw new Error('No valid Gemini API key found. Please configure GEMINI_API_KEY in your environment variables.');
   };
 
   const handleForgotPassword = () => {
@@ -3247,8 +3247,8 @@ function App() {
                     />
                   ) : (
                     <Stage
-                      width={800}
-                      height={450}
+                      width={aspectRatio === '9:16' ? 450 : 800}
+                      height={aspectRatio === '9:16' ? 800 : 450}
                       ref={stageRef}
                       onMouseDown={(e) => {
                         const clickedOnEmpty = e.target === e.target.getStage();
@@ -3261,7 +3261,7 @@ function App() {
                           <URLImage 
                             src={generatedImage} 
                             x={0} y={0} 
-                            width={800} height={450} 
+                            width={aspectRatio === '9:16' ? 450 : 800} height={aspectRatio === '9:16' ? 800 : 450} 
                             id="bg"
                             onSelect={() => setSelectedId('bg')}
                             isSelected={selectedId === 'bg'}
