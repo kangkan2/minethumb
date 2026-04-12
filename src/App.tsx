@@ -1582,11 +1582,11 @@ function App() {
 
           setVideoProgress('Gemini Video is crafting your cinematic masterpiece...');
           let operation = await ai.models.generateVideos({
-            model: selectedModel,
+            model: actualModelId,
             prompt: enhancedPrompt,
             config: {
               numberOfVideos: 1,
-              resolution: selectedModel === 'veo-3.1-generate-preview' ? '1080p' : '720p',
+              resolution: actualModelId === 'veo-3.1-generate-preview' ? '1080p' : '720p',
               aspectRatio: (aspectRatio === '9:16' ? '9:16' : '16:9') as any
             }
           });
@@ -1620,7 +1620,7 @@ function App() {
         }
       } else if (isImagen) {
         const response = await ai.models.generateImages({
-          model: selectedModel,
+          model: actualModelId,
           prompt: finalPrompt,
           config: {
             numberOfImages: 1,
